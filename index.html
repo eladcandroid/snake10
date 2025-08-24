@@ -1,46 +1,181 @@
 <html>
-<head><title>Snake</title></head>
-<body>
-<canvas id="game" width="400" height="400" style="border:1px solid #000"></canvas>
+<head>
+  <title>Snake</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="text-center">
+    <h1 class="text-4xl font-bold text-green-600 mb-6">Snake Game</h1>
+    
+    <div class="relative inline-block">
+      <canvas id="game" width="400" height="400" class="border-2 border-gray-800 bg-white"></canvas>
+      
+      <!-- Game Over Overlay -->
+      <div id="gameOverOverlay" class="absolute inset-0 bg-black bg-opacity-80 flex items-center justify-center hidden">
+        <div class="text-center text-white">
+          <h2 class="text-3xl font-bold mb-4">Game Over!</h2>
+          <p class="text-lg mb-6">Score: <span id="finalScore">0</span></p>
+          <button id="restartBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+            Play Again
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="mt-6 space-x-4">
+      <button id="newGameBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        New Game
+      </button>
+      <button id="pauseBtn" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">
+        Pause
+      </button>
+    </div>
+    
+    <div class="mt-4">
+      <p class="text-gray-600">Score: <span id="score" class="font-bold">0</span></p>
+      <p class="text-sm text-gray-500 mt-2">Use arrow keys to control the snake</p>
+    </div>
+  </div>
+
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
+const gameOverOverlay = document.getElementById('gameOverOverlay');
+const scoreElement = document.getElementById('score');
+const finalScoreElement = document.getElementById('finalScore');
+const newGameBtn = document.getElementById('newGameBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const restartBtn = document.getElementById('restartBtn');
+
 let snake = [{x: 200, y: 200}];
 let dx = 20, dy = 0;
 let food = {x: 100, y: 100};
+let score = 0;
+let gameRunning = true;
+let isPaused = false;
+let gameInterval;
+
+function generateFood() {
+  let newFood;
+  do {
+    newFood = {
+      x: Math.floor(Math.random() * 20) * 20,
+      y: Math.floor(Math.random() * 20) * 20
+    };
+  } while (snake.some(part => part.x === newFood.x && part.y === newFood.y));
+  return newFood;
+}
 
 function draw() {
   ctx.clearRect(0, 0, 400, 400);
-  ctx.fillStyle = 'green';
-  snake.forEach(part => ctx.fillRect(part.x, part.y, 20, 20));
+  
+  // Draw snake
+  ctx.fillStyle = '#16a34a';
+  snake.forEach((part, index) => {
+    if (index === 0) {
+      // Snake head - slightly different color
+      ctx.fillStyle = '#15803d';
+    } else {
+      ctx.fillStyle = '#16a34a';
+    }
+    ctx.fillRect(part.x, part.y, 20, 20);
+  });
+  
+  // Draw food
   ctx.font = '20px Arial';
   ctx.fillText('🍎', food.x, food.y + 18);
 }
 
+function updateScore() {
+  scoreElement.textContent = score;
+}
+
+function gameOver() {
+  gameRunning = false;
+  clearInterval(gameInterval);
+  finalScoreElement.textContent = score;
+  gameOverOverlay.classList.remove('hidden');
+}
+
+function resetGame() {
+  snake = [{x: 200, y: 200}];
+  dx = 20;
+  dy = 0;
+  score = 0;
+  food = generateFood();
+  gameRunning = true;
+  isPaused = false;
+  gameOverOverlay.classList.add('hidden');
+  updateScore();
+  pauseBtn.textContent = 'Pause';
+}
+
+function startGame() {
+  if (gameInterval) clearInterval(gameInterval);
+  gameInterval = setInterval(() => {
+    if (gameRunning && !isPaused) {
+      update();
+      draw();
+    }
+  }, 200);
+}
+
 function update() {
   const head = {x: snake[0].x + dx, y: snake[0].y + dy};
-  if (head.x < 0 || head.x >= 400 || head.y < 0 || head.y >= 400 || snake.some(part => part.x === head.x && part.y === head.y)) {
-    alert('Game Over!');
-    snake = [{x: 200, y: 200}];
-    dx = 20; dy = 0;
+  
+  // Check collisions
+  if (head.x < 0 || head.x >= 400 || head.y < 0 || head.y >= 400 || 
+      snake.some(part => part.x === head.x && part.y === head.y)) {
+    gameOver();
     return;
   }
+  
   snake.unshift(head);
+  
+  // Check food collision
   if (head.x === food.x && head.y === food.y) {
-    food = {x: Math.floor(Math.random() * 20) * 20, y: Math.floor(Math.random() * 20) * 20};
+    score += 10;
+    updateScore();
+    food = generateFood();
   } else {
     snake.pop();
   }
 }
 
+function togglePause() {
+  if (!gameRunning) return;
+  
+  isPaused = !isPaused;
+  pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+}
+
+// Event listeners
 document.addEventListener('keydown', e => {
+  if (!gameRunning || isPaused) return;
+  
   if (e.key === 'ArrowUp' && dy === 0) { dx = 0; dy = -20; }
   if (e.key === 'ArrowDown' && dy === 0) { dx = 0; dy = 20; }
   if (e.key === 'ArrowLeft' && dx === 0) { dx = -20; dy = 0; }
   if (e.key === 'ArrowRight' && dx === 0) { dx = 20; dy = 0; }
+  if (e.key === ' ') { e.preventDefault(); togglePause(); }
 });
 
-setInterval(() => { update(); draw(); }, 200);
+newGameBtn.addEventListener('click', () => {
+  resetGame();
+  startGame();
+});
+
+pauseBtn.addEventListener('click', togglePause);
+
+restartBtn.addEventListener('click', () => {
+  resetGame();
+  startGame();
+});
+
+// Initialize game
+food = generateFood();
+updateScore();
+startGame();
 draw();
 </script>
 </body>
